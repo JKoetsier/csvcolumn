@@ -69,7 +69,35 @@ def print_column_counts(filename: str, encoding: str):
             print('{:<40} {:<10} {:f}'.format(column_name, col_cnts[column_idx], col_cnts[column_idx] / total))
         
         print('{:<40} {}'.format('Total', total))
-                    
+
+def print_rows_empty(filename: str, column_header: str, encoding: str, max: int=100):
+    with open(filename, 'r', encoding=encoding) as csvfile:
+        reader = csv.reader(csvfile, delimiter=';')
+
+        col_index = 0
+        cnt = 0
+
+        for row in reader:
+            if reader.line_num == 1:
+                try:
+                    col_index = row.index(column_header)
+                    continue
+                except ValueError:
+                    print(f"Column header {column_header} not found in {filename}")
+                    exit(1)
+                print_row(row)
+
+            if not row[col_index]:
+                print_row(row)
+                cnt += 1
+
+                if cnt >= max:
+                    exit()
+
+def print_row(row: list, delimiter=';'):
+    print(delimiter.join(row))
+
+
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description='Print column and column info from CSV')
     parser.add_argument('csvfile', type=str, help='The CSV file')
@@ -78,6 +106,8 @@ if __name__ == "__main__":
     parser.add_argument('--encoding', default='UTF-8', dest='encoding', help='The character encoding of the CSV, defaults to UTF-8 (ISO-8859-1, UTF-8, etc)')
     parser.add_argument('--all', default=False, help='Print all values, instead of only the unique values')
     parser.add_argument('--counts', action='store_true', default=False, help='Print numer of non-empty values per column')
+    parser.add_argument('--empty-rows', dest='emptyrows', action='store_true', help='Print rows where column is empty')
+    parser.add_argument('--max', default=100, help='Max rows to output')
 
     args = parser.parse_args()
 
@@ -86,5 +116,7 @@ if __name__ == "__main__":
             print_column_counts(args.csvfile, encoding=args.encoding)
         else:
             print_headers(args.csvfile, encoding=args.encoding)
+    elif args.emptyrows:
+        print_rows_empty(args.csvfile, args.column, encoding=args.encoding, max=args.max)
     else:
         print_columns(args.csvfile, args.column, args.printempty, encoding=args.encoding, all=args.all)

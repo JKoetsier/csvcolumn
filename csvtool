@@ -5,163 +5,15 @@ import csv
 from collections import defaultdict
 
 
-def print_headers(filename: str, encoding: str):
-    with open(filename, 'r', encoding=encoding) as csvfile:
-        reader = csv.reader(csvfile, delimiter=';')
-
-        for row in reader:
-            for col in row:
-                print(col)
-            exit(0)
+def _get_csv_reader(file):
+    return csv.reader(file, delimiter=';')
 
 
-def value_counts_for_column(filename: str, column_header: str, encoding: str):
-    cnts = defaultdict(int)
+def _get_headers(file):
+    reader = _get_csv_reader(file)
 
-    with open(filename, 'r', encoding=encoding) as csvfile:
-        reader = csv.reader(csvfile, delimiter=';')
-        col_index = 0
-
-        for row in reader:
-            if reader.line_num == 1:
-                try:
-                    col_index = row.index(column_header)
-                    continue
-                except ValueError:
-                    print(f"Column header {column_header} not found in {filename}")
-                    exit(1)
-
-            val = row[col_index]
-            cnts[val] += 1
-    return cnts
-
-
-def action_values(filename: str, column_header: str, encoding: str,
-                  min: int=0, print_rows: bool = False):
-
-    cnts = value_counts_for_column(filename, column_header, encoding)
-    total = sum(cnts.values())
-
-    if print_rows:
-        vals = list(set([k for k, v in cnts.items() if v >= min]))
-
-        print_rows_where_column_equals(filename, column_header, vals, encoding)
-
-    else:
-        for column in sorted(cnts.keys()):
-            cnt = cnts[column]
-            if cnt >= min:
-                print('{:>10} ({:f}) {}'.format(cnt, cnt / total, column))
-
-        print('')
-        total_non_empty = sum([cnt for col, cnt in cnts.items() if col])
-        print('{:>20} {} ({:f})'.format('Total non-empty', total_non_empty, total_non_empty / total))
-        print('{:>20} {}'.format('Total', total))
-
-
-def print_column_counts(filename: str, encoding: str):
-    with open(filename, 'r', encoding=encoding) as csvfile:
-        reader = csv.reader(csvfile, delimiter=';')
-        col_indices = {}
-        col_cnts = defaultdict(int)
-        total = 0
-
-        for row in reader:
-            if reader.line_num == 1:
-                for idx, column in enumerate(row):
-                    col_indices[column] = idx
-
-                continue
-
-            for idx, value in enumerate(row):
-                if value:
-                    col_cnts[idx] += 1
-            total += 1
-
-        if total == 0:
-            print("No rows found")
-            exit()
-
-        for column_name, column_idx in col_indices.items():
-            print('{:<40} {:<10} {:f}'.format(column_name, col_cnts[column_idx], col_cnts[column_idx] / total))
-
-        print('{:<40} {}'.format('Total', total))
-
-
-def print_rows_empty(filename: str, column_header: str, encoding: str, max: int = 100):
-    with open(filename, 'r', encoding=encoding) as csvfile:
-        reader = csv.reader(csvfile, delimiter=';')
-
-        col_index = 0
-        cnt = 0
-
-        for row in reader:
-            if reader.line_num == 1:
-                try:
-                    col_index = row.index(column_header)
-                except ValueError:
-                    print(f"Column header {column_header} not found in {filename}")
-                    exit(1)
-                print_row(row)
-                continue
-
-            if not row[col_index]:
-                print_row(row)
-                cnt += 1
-
-                if cnt >= max:
-                    exit()
-
-
-def get_values_for_column(filename: str, column_header: str, encoding: str):
-
-
-    with open(filename, 'r', encoding=encoding) as csvfile:
-        reader = csv.reader(csvfile, delimiter=';')
-        col_index = 0
-
-        for row in reader:
-            if reader.line_num == 1:
-                try:
-                    col_index = row.index(column_header)
-                except ValueError:
-                    print(f"Column header {column_header} not found in {filename}")
-                    exit(1)
-                continue
-
-            yield row[col_index]
-
-
-def print_values_for_column(filename: str, column_header: str, encoding: str):
-    cnt = 0
-
-    for value in get_values_for_column(filename, column_header, encoding):
-        if value:
-            print(value)
-            cnt += 1
-
-
-def print_rows_where_column_equals(filename: str, column_header: str, equals: list, encoding: str):
-    with open(filename, 'r', encoding=encoding) as csvfile:
-        reader = csv.reader(csvfile, delimiter=';')
-        col_index = 0
-
-        # Make dict, much faster
-        equalvals = dict((x, x) for x in equals)
-
-        for row in reader:
-            if reader.line_num == 1:
-                try:
-                    col_index = row.index(column_header)
-                except ValueError:
-                    print(f"Column header {column_header} not found in {filename}")
-                    exit(1)
-
-                print_row(row)
-                continue
-
-            if equalvals.get(row[col_index]) is not None:
-                print_row(row)
+    row = next(reader)
+    return list(row)
 
 
 def _listdiff(l1: list, l2: list):
@@ -176,10 +28,176 @@ def _listdiff(l1: list, l2: list):
     return [v for v in l1 if vals2.get(v) is None]
 
 
-def compare_files(filename1: str, filename2: str, column_header: str, encoding1: str, encoding2: str,
-                  print_rows: bool = False):
-    values1 = list(get_values_for_column(filename1, column_header, encoding1))
-    values2 = list(get_values_for_column(filename2, column_header, encoding2))
+def print_values(values: list):
+    for v in values:
+        print(v)
+
+
+def print_row(row: list, delimiter=';'):
+    print(delimiter.join(row))
+
+
+
+def action_print_headers(file):
+    headers = _get_headers(file)
+
+    for header in headers:
+        print(header)
+
+
+def value_counts_for_column(file, column_header: str):
+    cnts = defaultdict(int)
+    reader = _get_csv_reader(file)
+    col_index = 0
+
+    for row in reader:
+        if reader.line_num == 1:
+            try:
+                col_index = row.index(column_header)
+                continue
+            except ValueError:
+                print(f"Column header {column_header} not found in file")
+                exit(1)
+
+        val = row[col_index]
+        cnts[val] += 1
+    return cnts
+
+
+def action_values(file, column_header: str, min: int=0, print_rows: bool = False):
+
+    cnts = value_counts_for_column(file, column_header)
+    total = sum(cnts.values())
+
+    if print_rows:
+        vals = list(set([k for k, v in cnts.items() if v >= min]))
+
+        print_rows_where_column_equals(file, column_header, vals)
+
+    else:
+        for column in sorted(cnts.keys()):
+            cnt = cnts[column]
+            if cnt >= min:
+                print('{:>10} ({:f}) {}'.format(cnt, cnt / total, column))
+
+        print('')
+        total_non_empty = sum([cnt for col, cnt in cnts.items() if col])
+        print('{:>20} {} ({:f})'.format('Total non-empty', total_non_empty, total_non_empty / total))
+        print('{:>20} {}'.format('Total', total))
+
+
+def print_column_counts(file):
+    reader = _get_csv_reader(file)
+    col_indices = {}
+    col_cnts = defaultdict(int)
+    total = 0
+
+    for row in reader:
+        if reader.line_num == 1:
+            for idx, column in enumerate(row):
+                col_indices[column] = idx
+
+            continue
+
+        for idx, value in enumerate(row):
+            if value:
+                col_cnts[idx] += 1
+        total += 1
+
+    if total == 0:
+        print("No rows found")
+        exit()
+
+    for column_name, column_idx in col_indices.items():
+        print('{:<40} {:<10} {:f}'.format(column_name, col_cnts[column_idx], col_cnts[column_idx] / total))
+
+    print('{:<40} {}'.format('Total', total))
+
+
+def print_rows_empty(file, column_header: str, max: int = 100):
+    reader = _get_csv_reader(file)
+
+    col_index = 0
+    cnt = 0
+
+    for row in reader:
+        if reader.line_num == 1:
+            try:
+                col_index = row.index(column_header)
+            except ValueError:
+                print(f"Column header {column_header} not found in file")
+                exit(1)
+            print_row(row)
+            continue
+
+        if not row[col_index]:
+            print_row(row)
+            cnt += 1
+
+            if cnt >= max:
+                exit()
+
+
+def get_values_for_column(file, column_header: str):
+    reader = _get_csv_reader(file)
+    col_index = 0
+
+    for row in reader:
+        if reader.line_num == 1:
+            try:
+                col_index = row.index(column_header)
+            except ValueError:
+                print(f"Column header {column_header} not found in file")
+                exit(1)
+            continue
+
+        yield row[col_index]
+
+
+def print_values_for_column(file, column_header: str):
+    cnt = 0
+
+    for value in get_values_for_column(file, column_header):
+        if value:
+            print(value)
+            cnt += 1
+
+
+def print_rows_where_column_equals(file, column_header: str, equals: list):
+    rows = get_rows_where_column_equals(file, column_header, equals)
+
+    for row in rows:
+        print(row)
+
+
+def get_rows_where_column_equals(file, column_header: str, equals: list):
+    result = []
+    reader = _get_csv_reader(file)
+    col_index = 0
+
+    # Make dict, much faster
+    equalvals = dict((x, x) for x in equals)
+
+    for row in reader:
+        if reader.line_num == 1:
+            try:
+                col_index = row.index(column_header)
+            except ValueError:
+                print(f"Column header {column_header} not found in file")
+                exit(1)
+
+            continue
+
+        if equalvals.get(row[col_index]) is not None:
+            result.append(row)
+
+    return result
+
+
+
+def compare_files(file1, file2, column_header: str, print_rows: bool = False):
+    values1 = list(get_values_for_column(file1, column_header))
+    values2 = list(get_values_for_column(file2, column_header))
 
     missing2 = _listdiff(values1, values2)
     missing1 = _listdiff(values2, values1)
@@ -187,11 +205,11 @@ def compare_files(filename1: str, filename2: str, column_header: str, encoding1:
     if print_rows:
         print("")
         print(f"Missing in 1 ({len(missing1)} rows):")
-        print_rows_where_column_equals(filename2, column_header, missing1, encoding2)
+        print_rows_where_column_equals(file2, column_header, missing1)
 
         print("")
         print(f"Missing in 2 ({len(missing2)} rows):")
-        print_rows_where_column_equals(filename1, column_header, missing2, encoding1)
+        print_rows_where_column_equals(file1, column_header, missing2)
         print("")
     else:
         print(f"Missing in 1 ({len(missing1)} values):")
@@ -200,37 +218,122 @@ def compare_files(filename1: str, filename2: str, column_header: str, encoding1:
         print_values(missing2)
 
 
-def action_compare_files_cnts(filename1: str, filename2: str, column_header: str, encoding1: str, encoding2: str):
-    counts1 = value_counts_for_column(filename1, column_header, encoding1)
-    counts2 = value_counts_for_column(filename2, column_header, encoding2)
+def action_compare_files_cnts(file1, file2, column_header: str, direction: str):
+    counts1 = value_counts_for_column(file1, column_header)
+    counts2 = value_counts_for_column(file2, column_header)
 
-    def print_line(col1, col2, col3):
-        print("{:<60} {:>8} {:>8}".format(col1, col2, col3))
-
-    print_line("Value", "File 1", "File 2")
+    diffs = {}
+    comparefunc = _get_compare_function(direction)
 
     for value, cnt1 in counts1.items():
         cnt2 = counts2.get(value, 0)
 
-        if cnt1 != cnt2:
-            print_line(value, cnt1, cnt2)
+        if comparefunc(cnt1, cnt2):
+            diffs[value] = (cnt1, cnt2)
 
         if cnt2 > 0:
             del counts2[value]
 
     # Remaining values
-    for value, cnt2 in counts2.items():
-        print_line(value, 0, cnt2)
+    if direction in ('=', '<'):
+        for value, cnt2 in counts2.items():
+            diffs[value] = (0, cnt2)
+
+    def print_line(col1, col2, col3):
+        print("{:<60} {:>8} {:>8}".format(col1, col2, col3))
+
+    # Only show totals
+    print_line("Value", "File 1", "File 2")
+
+    for value, (cnt1, cnt2) in diffs.items():
+        print_line(value, cnt1, cnt2)
 
 
+class File:
 
-def print_values(values: list):
-    for v in values:
-        print(v)
+    def __init__(self, file, rowid=None):
+        self.headers = _get_headers(file)
+        self.rowid_original = rowid
+        self.rowid = self._getrowid(rowid)
+        self.file = file
+        self.rows = self._read_rows(file)
 
+    def _getrowid(self, rowid):
+        if rowid is None:
+            return None
 
-def print_row(row: list, delimiter=';'):
-    print(delimiter.join(row))
+        result = []
+        for col_name in rowid:
+            col_idx = self.headers.index(col_name)
+
+            if col_idx is None:
+                raise ValueError(f"Column {col_name} does not exist")
+
+            result.append(col_idx)
+
+        return result
+
+    def _read_rows(self, file):
+        if self.rowid:
+            return self._read_rows_indexed(file)
+
+        raise NotImplementedError
+
+    def _get_index_for_row(self, row):
+        return tuple([row[i] for i in self.rowid])
+
+    def _read_rows_indexed(self, file):
+        reader = _get_csv_reader(file)
+
+        result = {}
+
+        for row in reader:
+            row_idx = self._get_index_for_row(row)
+            assert result.get(row_idx) is None
+            result[row_idx] = row
+
+        return result
+
+    def get_row(self, row_idx: tuple):
+        return self.rows.get(row_idx)
+
+    def get_colvalue(self, row, column_header):
+        return row[self.headers.index(column_header)]
+
+def _get_compare_function(direction: str):
+    if direction == '=':
+        comparefunc = lambda x, y: x != y
+    elif direction == '<':
+        comparefunc = lambda x, y: x < y
+    elif direction == '>':
+        comparefunc = lambda x, y: x > y
+    else:
+        raise Exception(f"Unknown direction: {direction}")
+
+    return comparefunc
+
+def action_compare_rows_on_value(file1, file2, column_header: str, rowid: list, direction: str):
+    f1 = File(file1, rowid)
+    f2 = File(file2, rowid)
+
+    comparefunc = _get_compare_function(direction)
+
+    for row_idx, row in f1.rows.items():
+        val1 = f1.get_colvalue(row, column_header)
+
+        row2 = f2.get_row(row_idx)
+
+        if not row2:
+            # Skip non-matching rows for now
+            print("1", row)
+            print("2", "row missing")
+            continue
+
+        val2 = f2.get_colvalue(row2, column_header)
+
+        if comparefunc(val1, val2):
+            print("1", row)
+            print("2", row2)
 
 
 if __name__ == "__main__":
@@ -249,8 +352,19 @@ Actions:
 {file} counts {column} --file2 {file2}      prints the difference in value counts for column between files 1 and 2
 
 Examples:
-csvtool {file} compare {column} --encoding ISO-8859-1 --file2 {file2} [--rows]
+- Show difference in values between file 1 and 2 for column
+csvtool {file} compare {column} --encoding ISO-8859-1 --file2 {file2}
+
+- Show difference in values between file 1 and 2 for column, but print the rows. Use columns A and B to uniquely identify row
+csvtool {file} counts {column} --encoding ISO-8859-1 --file2 {file2} --rows --rowid A,B
+
+- Show difference in values between file 1 and 2 for column, but only for where count is higher left than right
+csvtool {file} counts {column} --encoding ISO-8859-1 --file2 {file2} --direction '>'
+
+- Print distribution of values for column (only for values that occur more than n times)
 csvtool {file} values {column} [--min n]
+
+
 '''
     parser = argparse.ArgumentParser(description=description, formatter_class=argparse.RawDescriptionHelpFormatter)
     parser.add_argument('csvfile', type=str, help='The CSV file')
@@ -265,31 +379,51 @@ csvtool {file} values {column} [--min n]
                         help='The character encoding of the second CSV, defaults to UTF-8 (ISO-8859-1, UTF-8, etc)')
     parser.add_argument('--rows', action='store_true', help='Print rows instead of values')
     parser.add_argument('--min', default=1, type=int, help='Only show values that occur at least min times')
+    parser.add_argument('--rowid', type=str, help='Use this column(s) to uniquely identify rows')
+    parser.add_argument('--direction', type=str, help='Direction of differences to show, either <, > or =', default='=')
 
     args = parser.parse_args()
 
+    if args.rowid:
+        args.rowid = args.rowid.split(',')
+
+    file1 = open(args.csvfile, 'r', encoding=args.encoding)
+
+    if args.file2:
+        file2 = open(args.file2, 'r', encoding=args.encoding2)
+    else:
+        file2 = None
+
     if args.action == 'headers':
-        print_headers(args.csvfile, encoding=args.encoding)
+        action_print_headers(file1)
     elif args.action == 'fillstats':
-        print_column_counts(args.csvfile, encoding=args.encoding)
+        print_column_counts(file1)
     elif args.action == 'emptyrows':
         assert args.column
-        print_rows_empty(args.csvfile, args.column, encoding=args.encoding, max=args.max)
+        print_rows_empty(file1, args.column, max=args.max)
     elif args.action == 'column':
         assert args.column
-        print_values_for_column(args.csvfile, args.column, encoding=args.encoding)
+        print_values_for_column(file1, args.column)
     elif args.action == 'values':
         assert args.column
-        action_values(args.csvfile, args.column, encoding=args.encoding, min=args.min,
+        action_values(file1, args.column, min=args.min,
                       print_rows=args.rows)
     elif args.action == 'compare':
         assert args.file2
         assert args.column
-        compare_files(args.csvfile, args.file2, args.column, encoding1=args.encoding, encoding2=args.encoding2,
-                      print_rows=args.rows)
+        compare_files(file1, file2, args.column, print_rows=args.rows)
     elif args.action == 'counts':
         assert args.file2
         assert args.column
-        action_compare_files_cnts(args.csvfile, args.file2, args.column, encoding1=args.encoding,
-                                  encoding2=args.encoding2)
 
+        if not args.rows:
+            action_compare_files_cnts(file1, file2, args.column, direction=args.direction)
+        else:
+            assert args.rowid
+
+            action_compare_rows_on_value(file1, file2, args.column, rowid=args.rowid, direction=args.direction)
+
+    file1.close()
+
+    if file2:
+        file2.close()

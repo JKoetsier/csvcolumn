@@ -114,28 +114,21 @@ def print_column_counts(file):
     print('{:<40} {}'.format('Total', total))
 
 
-def print_rows_empty(file, column_header: str, max: int = 100):
-    reader = _get_csv_reader(file)
+def action_empty(file, column_header: str, max: int = 0, print_rows=False, rowid=None):
+    if print_rows is False and rowid is None:
+        raise Exception("Missing rows or rowid parameter")
 
-    col_index = 0
-    cnt = 0
+    if print_rows:
+        raise NotImplementedError
 
-    for row in reader:
-        if reader.line_num == 1:
-            try:
-                col_index = row.index(column_header)
-            except ValueError:
-                print(f"Column header {column_header} not found in file")
-                exit(1)
-            print_row(row)
-            continue
+    f = File(file, rowid)
 
-        if not row[col_index]:
-            print_row(row)
-            cnt += 1
+    for row_idx, row in f.rows.items():
+        value = f.get_colvalue(row, column_header)
 
-            if cnt >= max:
-                exit()
+        if not value:
+            print(f._get_index_for_row(row))
+
 
 
 def get_values_for_column(file, column_header: str):
@@ -239,14 +232,14 @@ def action_compare_files_cnts(file1, file2, column_header: str, direction: str):
         for value, cnt2 in counts2.items():
             diffs[value] = (0, cnt2)
 
-    def print_line(col1, col2, col3):
-        print("{:<60} {:>8} {:>8}".format(col1, col2, col3))
+    def print_line(col1, col2, col3, col4):
+        print("{:<60} {:>8} {:>8} {:>8}".format(col1, col2, col3, col4))
 
     # Only show totals
-    print_line("Value", "File 1", "File 2")
+    print_line("Value", "File 1", "File 2", "Diff")
 
     for value, (cnt1, cnt2) in diffs.items():
-        print_line(value, cnt1, cnt2)
+        print_line(value, cnt1, cnt2, cnt2 - cnt1)
 
 
 class File:
@@ -300,6 +293,7 @@ class File:
     def get_colvalue(self, row, column_header):
         return row[self.headers.index(column_header)]
 
+
 def _get_compare_function(direction: str):
     if direction == '=':
         comparefunc = lambda x, y: x != y
@@ -311,6 +305,7 @@ def _get_compare_function(direction: str):
         raise Exception(f"Unknown direction: {direction}")
 
     return comparefunc
+
 
 def action_compare_rows_on_value(file1, file2, column_header: str, rowid: list, direction: str):
     f1 = File(file1, rowid)
@@ -337,14 +332,14 @@ def action_compare_rows_on_value(file1, file2, column_header: str, rowid: list, 
 
 
 if __name__ == "__main__":
-    actions = ['column', 'emptyrows', 'fillstats', 'headers', 'values', 'compare', 'counts']
+    actions = ['column', 'empty', 'fillstats', 'headers', 'values', 'compare', 'counts']
 
     description = '''
 CSV helper tool
 
 Actions:
 {file} column {column}                      prints all values for column
-{file} emptyrows {column}                   prints all rows where column is empty
+{file} empty {column}                       prints all rows or ids where column is empty
 {file} fillstats                            prints the fill statistics for all columns (number of non-empty values)
 {file} headers                              prints the headers of the file
 {file} values {column}                      prints the distribution of values for column 
@@ -364,6 +359,12 @@ csvtool {file} counts {column} --encoding ISO-8859-1 --file2 {file2} --direction
 - Print distribution of values for column (only for values that occur more than n times)
 csvtool {file} values {column} [--min n]
 
+- Print all rows where column is empty
+csvtool {file} empty {column} --rows
+
+- Print all rowids where column is empty
+csvtool {file} empty {column} --rowid A,B
+
 
 '''
     parser = argparse.ArgumentParser(description=description, formatter_class=argparse.RawDescriptionHelpFormatter)
@@ -373,7 +374,7 @@ csvtool {file} values {column} [--min n]
                         help='The header of the column to print. If omitted, all column names will be written to screen')
     parser.add_argument('--encoding', default='utf-8-sig', dest='encoding',
                         help='The character encoding of the CSV, defaults to UTF-8 (ISO-8859-1, UTF-8, etc)')
-    parser.add_argument('--max', default=100, type=int, help='Max rows to output')
+    parser.add_argument('--max', default=0, type=int, help='Max rows to output')
     parser.add_argument('--file2', dest='file2', help='Second file, for comparison')
     parser.add_argument('--encoding2', default='utf-8-sig', dest='encoding2',
                         help='The character encoding of the second CSV, defaults to UTF-8 (ISO-8859-1, UTF-8, etc)')
@@ -398,9 +399,9 @@ csvtool {file} values {column} [--min n]
         action_print_headers(file1)
     elif args.action == 'fillstats':
         print_column_counts(file1)
-    elif args.action == 'emptyrows':
+    elif args.action == 'empty':
         assert args.column
-        print_rows_empty(file1, args.column, max=args.max)
+        action_empty(file1, args.column, max=args.max, print_rows=args.rows, rowid=args.rowid)
     elif args.action == 'column':
         assert args.column
         print_values_for_column(file1, args.column)

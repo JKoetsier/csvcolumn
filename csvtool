@@ -130,7 +130,6 @@ def action_empty(file, column_header: str, max: int = 0, print_rows=False, rowid
             print(f._get_index_for_row(row))
 
 
-
 def get_values_for_column(file, column_header: str):
     reader = _get_csv_reader(file)
     col_index = 0
@@ -187,28 +186,39 @@ def get_rows_where_column_equals(file, column_header: str, equals: list):
     return result
 
 
+def compare_files(file1, file2, column_header: str, direction: str='<'):
+    reader = _get_csv_reader(file1 if direction == '<' else file2)
 
-def compare_files(file1, file2, column_header: str, print_rows: bool = False):
-    values1 = list(get_values_for_column(file1, column_header))
-    values2 = list(get_values_for_column(file2, column_header))
+    col_indexes = []
+    have_vals = []
 
-    missing2 = _listdiff(values1, values2)
-    missing1 = _listdiff(values2, values1)
+    for row in reader:
+        if reader.line_num == 1:
+            try:
+                col_indexes = [row.index(header) for header in column_header.split(',')]
+            except ValueError:
+                print(f"Column header {column_header} not found in file")
+                exit(1)
 
-    if print_rows:
-        print("")
-        print(f"Missing in 1 ({len(missing1)} rows):")
-        print_rows_where_column_equals(file2, column_header, missing1)
+            continue
 
-        print("")
-        print(f"Missing in 2 ({len(missing2)} rows):")
-        print_rows_where_column_equals(file1, column_header, missing2)
-        print("")
-    else:
-        print(f"Missing in 1 ({len(missing1)} values):")
-        print_values(missing1)
-        print(f"Missing in 2 ({len(missing2)} values):")
-        print_values(missing2)
+        have_vals.append(tuple([row[idx] for idx in col_indexes]))
+
+    have_vals = dict((val, val) for val in have_vals)
+    print(have_vals)
+
+    reader2 = _get_csv_reader(file2 if direction == '>' else file1)
+
+    print("Not in file {}:".format('1' if direction == '<' else '2'))
+
+    for row in reader2:
+        if reader.line_num == 1:
+            continue
+
+        val = tuple([row[idx] for idx in col_indexes])
+
+        if have_vals.get(val) is None:
+            print(val)
 
 
 def action_compare_files_cnts(file1, file2, column_header: str, direction: str):
@@ -412,7 +422,7 @@ csvtool {file} empty {column} --rowid A,B
     elif args.action == 'compare':
         assert args.file2
         assert args.column
-        compare_files(file1, file2, args.column, print_rows=args.rows)
+        compare_files(file1, file2, args.column, direction=args.direction)
     elif args.action == 'counts':
         assert args.file2
         assert args.column
